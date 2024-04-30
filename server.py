@@ -10,31 +10,35 @@ server.bind((HOST, PORT))
 server.listen()
 
 clients = {}
-logging.basicConfig(level=logging.INFO, filename="py_log.log",filemode="w")
+logging.basicConfig(level=logging.INFO, filename="py_log.log", filemode="w")
 
 
-def broadcast(message, current_client=None) -> None:
+def broadcast(message, sender) -> None:
     for client in clients:
-        if client == current_client or message == ':q':
-            continue
-        if current_client is None:
-            continue
-
-        client.send(message)
+        if client != sender:
+            try:
+                client.send(message.encode())
+            except Exception as e:
+                print(f'Error: {type(e).__name__}, {e}')
+                del clients[client]
 
 
 def handle(client) -> None:
     while True:
         try:
             message = client.recv(1024)
-            logging.info(f'client {clients[client]} got {message}')
+            if message.decode() == ':q':
+                broadcast(f'Client disconnected: {clients[client]}'.encode(), client)
+                logging.info(f'Client disconnected: {clients[client]}')
+                del clients[client]
+                client.close()
+                continue
+
+            logging.info(f'client {clients[client]} sent {message}')
             broadcast(message, client)
         except Exception as e:
             print(f'Error: {type(e).__name__}, {e}')
-            broadcast(f'Client disconnected: {clients[client]}'.encode())
-            del clients[client]
-            client.close()
-            exit()
+            break
 
 
 def receive() -> None:
@@ -47,14 +51,12 @@ def receive() -> None:
         clients[client] = nickname
 
         print(f'Client connected: {nickname}')
-        broadcast(f'New client connected: {nickname}'.encode())
+        broadcast(f'New client connected: {nickname}'.encode(), client)
         client.send('Connected to the server'.encode())
 
         thread = threading.Thread(target=handle, args=(client,))
         thread.start()
 
 
-
 print('Server starting...')
 receive()
-

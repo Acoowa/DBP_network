@@ -1,5 +1,5 @@
 import socket
-import threading
+from threading import Thread
 
 HOST = '127.0.0.1'
 PORT = 12345
@@ -11,7 +11,7 @@ client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((HOST, PORT))
 
 
-def receive() -> None:
+def receive(client) -> None:
     while True:
         try:
             message = client.recv(1024).decode()
@@ -25,17 +25,20 @@ def receive() -> None:
             break
 
 
-def write() -> None:
+def write(client) -> None:
     while True:
         message = input('')
         if message == ':q':
+            client.send(message.encode())
             client.close()
-            return
+            break
         client.send(f'{nickname}: {message}'.encode())
 
+        if not client:
+            break
 
-t_receive = threading.Thread(target=receive)
+
+t_receive = Thread(target=receive, args=(client,))
 t_receive.start()
 
-t_write = threading.Thread(target=write)
-t_write.start()
+write(client)
